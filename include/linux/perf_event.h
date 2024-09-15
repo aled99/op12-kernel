@@ -744,7 +744,6 @@ struct perf_event {
 
 	struct list_head		owner_entry;
 	struct task_struct		*owner;
-	cpumask_t			readable_on_cpus;
 
 	/* mmap bits */
 	struct mutex			mmap_mutex;

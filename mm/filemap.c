@@ -3570,13 +3570,6 @@ vm_fault_t filemap_map_pages(struct vm_fault *vmf,
 	unsigned int mmap_miss = READ_ONCE(file->f_ra.mmap_miss);
 	vm_fault_t ret = 0;
 	pgoff_t first_pgoff = 0;
-#ifdef CONFIG_F2FS_APPBOOST
-	char *pathbuf = NULL;
-#endif
-#ifdef CONFIG_F2FS_APPBOOST
-        if (trace_filemap_map_pages_enabled())
-                pathbuf = kmalloc(PATH_MAX, GFP_KERNEL);
-#endif
 
 	rcu_read_lock();
 	folio = first_map_page(mapping, &xas, end_pgoff);
@@ -3591,7 +3584,6 @@ vm_fault_t filemap_map_pages(struct vm_fault *vmf,
 
 	addr = vma->vm_start + ((start_pgoff - vma->vm_pgoff) << PAGE_SHIFT);
 	vmf->pte = pte_offset_map_lock(vma->vm_mm, vmf->pmd, addr, &vmf->ptl);
-
 	do {
 again:
 		page = folio_file_page(folio, xas.xa_index);
@@ -3625,17 +3617,6 @@ again:
 			folio_ref_inc(folio);
 			goto again;
 		}
-#ifdef CONFIG_F2FS_APPBOOST
-		if (trace_filemap_map_pages_enabled() && pathbuf) {
-			if (mapping->host && mapping->host->i_sb
-					&& mapping->host->i_sb->s_magic == F2FS_SUPER_MAGIC) {
-				char *path = d_path(&file->f_path, pathbuf, PATH_MAX);
-				if (!IS_ERR(path))
-					trace_filemap_map_pages(mapping->host, page, path);
-			}
-		}
-#endif
-
 		folio_unlock(folio);
 		continue;
 unlock:
@@ -3649,10 +3630,6 @@ unlock:
 	pte_unmap_unlock(vmf->pte, vmf->ptl);
 out:
 	rcu_read_unlock();
-#ifdef CONFIG_F2FS_APPBOOST
-        if (pathbuf)
-                kfree(pathbuf);
-#endif
 	WRITE_ONCE(file->f_ra.mmap_miss, mmap_miss);
 	trace_android_vh_filemap_map_pages(file, first_pgoff, last_pgoff, ret);
 

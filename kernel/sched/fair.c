@@ -153,11 +153,11 @@ __setup("sched_thermal_decay_shift=", setup_sched_thermal_decay_shift);
 
 #ifdef CONFIG_SMP
 /*
- * For asym packing, by default the lower max-capacity CPU has higher priority.
+ * For asym packing, by default the lower numbered CPU has higher priority.
  */
 int __weak arch_asym_cpu_priority(int cpu)
 {
-	return -arch_scale_cpu_capacity(cpu);
+	return -cpu;
 }
 
 /*
@@ -818,8 +818,7 @@ void init_entity_runnable_average(struct sched_entity *se)
  * With new tasks being created, their initial util_avgs are extrapolated
  * based on the cfs_rq's current util_avg:
  *
- *   util_avg = cfs_rq->avg.util_avg / (cfs_rq->avg.load_avg + 1)
- *		* se_weight(se)
+ *   util_avg = cfs_rq->util_avg / (cfs_rq->load_avg + 1) * se.load.weight
  *
  * However, in many cases, the above util_avg does not give a desired
  * value. Moreover, the sum of the util_avgs may be divergent, such
@@ -866,7 +865,7 @@ void post_init_entity_util_avg(struct task_struct *p)
 
 	if (cap > 0) {
 		if (cfs_rq->avg.util_avg != 0) {
-			sa->util_avg  = cfs_rq->avg.util_avg * se_weight(se);
+			sa->util_avg  = cfs_rq->avg.util_avg * se->load.weight;
 			sa->util_avg /= (cfs_rq->avg.load_avg + 1);
 
 			if (sa->util_avg > cap)
@@ -3616,8 +3615,7 @@ static inline bool cfs_rq_is_decayed(struct cfs_rq *cfs_rq)
  */
 static inline void update_tg_load_avg(struct cfs_rq *cfs_rq)
 {
-	long delta;
-	u64 now;
+	long delta = cfs_rq->avg.load_avg - cfs_rq->tg_load_avg_contrib;
 
 	/*
 	 * No need to update load_avg for root_task_group as it is not used.
@@ -3625,19 +3623,9 @@ static inline void update_tg_load_avg(struct cfs_rq *cfs_rq)
 	if (cfs_rq->tg == &root_task_group)
 		return;
 
-	/*
-	 * For migration heavy workloads, access to tg->load_avg can be
-	 * unbound. Limit the update rate to at most once per ms.
-	 */
-	now = sched_clock_cpu(cpu_of(rq_of(cfs_rq)));
-	if (now - cfs_rq->last_update_tg_load_avg < NSEC_PER_MSEC)
-		return;
-
-	delta = cfs_rq->avg.load_avg - cfs_rq->tg_load_avg_contrib;
 	if (abs(delta) > cfs_rq->tg_load_avg_contrib / 64) {
 		atomic_long_add(delta, &cfs_rq->tg->load_avg);
 		cfs_rq->tg_load_avg_contrib = cfs_rq->avg.load_avg;
-		cfs_rq->last_update_tg_load_avg = now;
 	}
 }
 
@@ -4307,11 +4295,6 @@ static inline unsigned long task_util(struct task_struct *p)
 	return READ_ONCE(p->se.avg.util_avg);
 }
 
-static inline unsigned long task_runnable(struct task_struct *p)
-{
-	return READ_ONCE(p->se.avg.runnable_avg);
-}
-
 static inline unsigned long _task_util_est(struct task_struct *p)
 {
 	struct util_est ue = READ_ONCE(p->se.avg.util_est);
@@ -4434,14 +4417,6 @@ static inline void util_est_update(struct cfs_rq *cfs_rq,
 	 */
 	if (task_util(p) > capacity_orig_of(cpu_of(rq_of(cfs_rq))))
 		return;
-
-	/*
-	 * To avoid underestimate of task utilization, skip updates of EWMA if
-	 * we cannot grant that thread got all CPU time it wanted.
-	 */
-	if ((ue.enqueued + UTIL_EST_MARGIN) < task_runnable(p))
-		goto done;
-
 
 	/*
 	 * Update Task's estimated utilization
@@ -6957,7 +6932,7 @@ select_idle_capacity(struct task_struct *p, struct sched_domain *sd, int target)
 	util_min = uclamp_eff_value(p, UCLAMP_MIN);
 	util_max = uclamp_eff_value(p, UCLAMP_MAX);
 
-	for_each_cpu_wrap(cpu, cpus, target + 1) {
+	for_each_cpu_wrap(cpu, cpus, target) {
 		unsigned long cpu_cap = capacity_of(cpu);
 
 		if (!available_idle_cpu(cpu) && !sched_idle_cpu(cpu))
@@ -10871,12 +10846,8 @@ more_balance:
 		 * We do not want newidle balance, which can be very
 		 * frequent, pollute the failure counter causing
 		 * excessive cache_hot migrations and active balances.
-		 *
-		 * Similarly for migration_misfit which is not related to
-		 * load/util migration, don't pollute nr_balance_failed.
 		 */
-		if (idle != CPU_NEWLY_IDLE &&
-		    env.migration_type != migrate_misfit)
+		if (idle != CPU_NEWLY_IDLE)
 			sd->nr_balance_failed++;
 
 		if (need_active_balance(&env)) {
@@ -10959,13 +10930,8 @@ out_one_pinned:
 	 * repeatedly reach this code, which would lead to balance_interval
 	 * skyrocketing in a short amount of time. Skip the balance_interval
 	 * increase logic to avoid that.
-	 *
-	 * Similarly misfit migration which is not necessarily an indication of
-	 * the system being busy and requires lb to backoff to let it settle
-	 * down.
 	 */
-	if (env.idle == CPU_NEWLY_IDLE ||
-	    env.migration_type == migrate_misfit)
+	if (env.idle == CPU_NEWLY_IDLE)
 		goto out;
 
 	/* tune up the balancing interval */
@@ -11322,28 +11288,19 @@ static void nohz_balancer_kick(struct rq *rq)
 	 */
 	nohz_balance_exit_idle(rq);
 
+	/*
+	 * None are in tickless mode and hence no need for NOHZ idle load
+	 * balancing.
+	 */
+	if (likely(!atomic_read(&nohz.nr_cpus)))
+		return;
+
 	if (READ_ONCE(nohz.has_blocked) &&
 	    time_after(now, READ_ONCE(nohz.next_blocked)))
 		flags = NOHZ_STATS_KICK;
 
-	/*
-	 * Most of the time system is not 100% busy. i.e nohz.nr_cpus > 0
-	 * Skip the read if time is not due.
-	 *
-	 * If none are in tickless mode, there maybe a narrow window
-	 * (28 jiffies, HZ=1000) where flags maybe set and kick_ilb called.
-	 * But idle load balancing is not done as find_new_ilb fails.
-	 * That's very rare. So read nohz.nr_cpus only if time is due.
-	 */
 	if (time_before(now, nohz.next_balance))
 		goto out;
-
-	/*
-	 * None are in tickless mode and hence no need for NOHZ idle load
-	 * balancing:
-	 */
-	if (likely(!atomic_read(&nohz.nr_cpus)))
-		return;
 
 	trace_android_rvh_sched_nohz_balancer_kick(rq, &flags, &done);
 	if (done)

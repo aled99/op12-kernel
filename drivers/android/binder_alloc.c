@@ -48,22 +48,6 @@ module_param_named(debug_mask, binder_alloc_debug_mask,
 			pr_info_ratelimited(x); \
 	} while (0)
 
-static struct kmem_cache *binder_buffer_pool;
-
-int binder_buffer_pool_create(void)
-{
-	binder_buffer_pool = KMEM_CACHE(binder_buffer, SLAB_HWCACHE_ALIGN);
-	if (!binder_buffer_pool)
-		return -ENOMEM;
-
-	return 0;
-}
-
-void binder_buffer_pool_destroy(void)
-{
-	kmem_cache_destroy(binder_buffer_pool);
-}
-
 static struct binder_buffer *binder_buffer_next(struct binder_buffer *buffer)
 {
 	return list_entry(buffer->entry.next, struct binder_buffer, entry);
@@ -245,22 +229,12 @@ static int binder_install_single_page(struct binder_alloc *alloc,
 		return -ESRCH;
 
 	/*
-	 * Don't allocate page in mmap_write_lock, this can block
-	 * mmap_rwsem for a long time; Meanwhile, allocation failure
-	 * doesn't necessarily need to return -ENOMEM, if lru_page
-	 * has been installed, we can still return 0(success).
-	 */
-	page = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);
-
-	/*
 	 * Protected with mmap_sem in write mode as multiple tasks
 	 * might race to install the same page.
 	 */
 	mmap_write_lock(alloc->mm);
-	if (binder_get_installed_page(lru_page)) {
-		ret = 1;
+	if (binder_get_installed_page(lru_page))
 		goto out;
-	}
 
 	if (!alloc->vma) {
 		pr_err("%d: %s failed, no vma\n", alloc->pid, __func__);
@@ -268,6 +242,7 @@ static int binder_install_single_page(struct binder_alloc *alloc,
 		goto out;
 	}
 
+	page = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);
 	if (!page) {
 		pr_err("%d: failed to allocate page\n", alloc->pid);
 		ret = -ENOMEM;
@@ -279,6 +254,7 @@ static int binder_install_single_page(struct binder_alloc *alloc,
 		pr_err("%d: %s failed to insert page at offset %lx with %d\n",
 		       alloc->pid, __func__, addr - (uintptr_t)alloc->buffer,
 		       ret);
+		__free_page(page);
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -288,9 +264,7 @@ static int binder_install_single_page(struct binder_alloc *alloc,
 out:
 	mmap_write_unlock(alloc->mm);
 	mmput_async(alloc->mm);
-	if (ret && page)
-		__free_page(page);
-	return ret < 0 ? ret : 0;
+	return ret;
 }
 
 static int binder_install_buffer_pages(struct binder_alloc *alloc,
@@ -564,8 +538,7 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 
 out:
 	/* Discard possibly unused new_buffer */
-	if (new_buffer)
-		kmem_cache_free(binder_buffer_pool, new_buffer);
+	kfree(new_buffer);
 	return buffer;
 }
 
@@ -634,7 +607,7 @@ struct binder_buffer *binder_alloc_new_buf(struct binder_alloc *alloc,
 	}
 
 	/* Preallocate the next buffer */
-	next = kmem_cache_zalloc(binder_buffer_pool, GFP_KERNEL);
+	next = kzalloc(sizeof(*next), GFP_KERNEL);
 	if (!next)
 		return ERR_PTR(-ENOMEM);
 
@@ -694,7 +667,7 @@ static void binder_delete_free_buffer(struct binder_alloc *alloc,
 				buffer_start_page(buffer) + PAGE_SIZE);
 skip_freelist:
 	list_del(&buffer->entry);
-	kmem_cache_free(binder_buffer_pool, buffer);
+	kfree(buffer);
 }
 
 static void binder_free_buf_locked(struct binder_alloc *alloc,
@@ -891,7 +864,7 @@ int binder_alloc_mmap_handler(struct binder_alloc *alloc,
 		INIT_LIST_HEAD(&alloc->pages[i].lru);
 	}
 
-	buffer = kmem_cache_zalloc(binder_buffer_pool, GFP_KERNEL);
+	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer) {
 		ret = -ENOMEM;
 		failure_string = "alloc buffer struct";
@@ -958,7 +931,7 @@ void binder_alloc_deferred_release(struct binder_alloc *alloc)
 
 		list_del(&buffer->entry);
 		WARN_ON_ONCE(!list_empty(&alloc->buffers));
-		kmem_cache_free(binder_buffer_pool, buffer);
+		kfree(buffer);
 	}
 
 	page_count = 0;

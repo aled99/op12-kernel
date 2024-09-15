@@ -21,14 +21,6 @@ ifdef CONFIG_FUNCTION_TRACER
 CFLAGS_REMOVE_irq_work.o = $(CC_FLAGS_FTRACE)
 endif
 
-PGO_PROFILE_softirq.o := n
-PGO_PROFILE_extable.o := n
-PGO_PROFILE_stacktrace.o := n
-PGO_PROFILE_kcov.o := n
-PGO_PROFILE_softirq.o := n
-PGO_PROFILE_stackleak.o := n
-PGO_PROFILE_module_signature.o := n
-
 # Prevents flicker of uninteresting __do_softirq()/__local_bh_disable_ip()
 # in coverage traces.
 KCOV_INSTRUMENT_softirq.o := n
@@ -103,6 +95,7 @@ obj-$(CONFIG_SECCOMP) += seccomp.o
 obj-$(CONFIG_RELAY) += relay.o
 obj-$(CONFIG_SYSCTL) += utsname_sysctl.o
 obj-$(CONFIG_TASKSTATS) += taskstats.o tsacct.o
+obj-$(CONFIG_MSM_SYSSTATS) += msm_sysstats.o
 obj-$(CONFIG_TRACEPOINTS) += tracepoint.o
 obj-$(CONFIG_LATENCYTOP) += latencytop.o
 obj-$(CONFIG_FUNCTION_TRACER) += trace/
@@ -121,7 +114,6 @@ obj-$(CONFIG_HAVE_STATIC_CALL_INLINE) += static_call_inline.o
 obj-$(CONFIG_CFI_CLANG) += cfi.o
 obj-$(CONFIG_NUMA) += numa.o
 
-obj-$(CONFIG_PGO_CLANG) += pgo/
 obj-$(CONFIG_PERF_EVENTS) += events/
 
 obj-$(CONFIG_USER_RETURN_NOTIFIER) += user-return-notifier.o
@@ -158,7 +150,7 @@ $(obj)/config_data.gz: $(obj)/config_data FORCE
 
 filechk_cat = cat $<
 
-$(obj)/config_data: arch/arm64/configs/gki-stock_defconfig FORCE
+$(obj)/config_data: $(KCONFIG_CONFIG) FORCE
 	$(call filechk,cat)
 
 $(obj)/kheaders.o: $(obj)/kheaders_data.tar.xz
@@ -169,3 +161,31 @@ $(obj)/kheaders_data.tar.xz: FORCE
 	$(call cmd,genikh)
 
 clean-files := kheaders_data.tar.xz kheaders.md5
+
+#ifdef OPLUS_FEATURE_OCH
+obj-$(CONFIG_OPLUS_FEATURE_OCH) += oplus_cpu/cpufreq_health/
+#endif /* OPLUS_FEATURE_OCH */
+
+#ifdef OPLUS_FEATURE_PERFORMANCE_SCHED
+obj-$(CONFIG_OPLUS_FEATURE_PERFORMANCE_SCHED) += oplus_cpu/sched/
+#endif /* OPLUS_FEATURE_PERFORMANCE_SCHED */
+
+#ifdef OPLUS_FEATURE_OMRG
+obj-$(CONFIG_OPLUS_OMRG) += oplus_cpu/oplus_omrg/
+#endif /* OPLUS_FEATURE_OMRG */
+
+#ifdef OPLUS_FEATURE_GKI_CPUFREQ_BOUNCING
+obj-$(CONFIG_OPLUS_FEATURE_GKI_CPUFREQ_BOUNCING) += oplus_cpu/cpufreq_bouncing/
+#endif /* OPLUS_FEATURE_GKI_CPUFREQ_BOUNCING */
+
+#ifdef OPLUS_CPU_FREQ_GOV_UAG
+obj-$(CONFIG_OPLUS_CPU_FREQ_GOV_UAG) += oplus_cpu/uad/
+#endif /* OPLUS_CPU_FREQ_GOV_UAG */
+
+#ifdef OPLUS_FEATURE_ABNORMAL_FLAG
+obj-$(CONFIG_OPLUS_FEATURE_ABNORMAL_FLAG) += oplus_cpu/oplus_overload/
+#endif /* OPLUS_FEATURE_ABNORMAL_FLAG */
+
+#ifdef OPLUS_FEATURE_WAKER_IDENTIFY
+obj-$(CONFIG_OPLUS_FEATURE_WAKER_IDENTIFY) += oplus_cpu/waker_identify/
+#endif OPLUS_FEATURE_WAKER_IDENTIFY

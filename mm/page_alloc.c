@@ -422,7 +422,7 @@ compound_page_dtor * const compound_page_dtors[NR_COMPOUND_DTORS] = {
 
 int min_free_kbytes = 1024;
 int user_min_free_kbytes = -1;
-int watermark_boost_factor __read_mostly;
+int watermark_boost_factor __read_mostly = 15000;
 int watermark_scale_factor = 10;
 
 static unsigned long nr_kernel_pages __initdata;
@@ -10435,7 +10435,7 @@ static void break_down_buddy_pages(struct zone *zone, struct page *page,
 			add_to_free_list(current_buddy, zone, high, migratetype);
 			set_buddy_order(current_buddy, high);
 #ifdef CONFIG_CONT_PTE_HUGEPAGE
-			if (is_migrate_ext(migratetype)) {
+			if (is_migrate_ext(migratetype))
 				spin_unlock(&ext_mt_spinlock);
 #endif
 		}

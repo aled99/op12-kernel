@@ -36,28 +36,6 @@ static inline void sanity_check_seg_type(struct f2fs_sb_info *sbi,
 #define IS_WARM(t)	((t) == CURSEG_WARM_NODE || (t) == CURSEG_WARM_DATA)
 #define IS_COLD(t)	((t) == CURSEG_COLD_NODE || (t) == CURSEG_COLD_DATA)
 
-#ifdef CONFIG_F2FS_SEQZONE
-#define IS_CURSEG_SEQZONE(sbi, seg)	(\
-	 ((seg) == CURSEG_I(sbi, CURSEG_HOT_DATA_0)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_HOT_DATA_1)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_HOT_DATA_2)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_HOT_DATA_3)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_HOT_DATA_4)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_HOT_DATA_5)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_HOT_DATA_6)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_HOT_DATA_7)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_DATA_0)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_DATA_1)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_DATA_2)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_DATA_3)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_DATA_4)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_DATA_5)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_DATA_6)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_DATA_7)->segno))
-#else
-#define IS_CURSEG_SEQZONE(sbi, seg)	(false)
-#endif
-
 #define IS_CURSEG(sbi, seg)						\
 	(((seg) == CURSEG_I(sbi, CURSEG_HOT_DATA)->segno) ||	\
 	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_DATA)->segno) ||	\
@@ -66,46 +44,7 @@ static inline void sanity_check_seg_type(struct f2fs_sb_info *sbi,
 	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_NODE)->segno) ||	\
 	 ((seg) == CURSEG_I(sbi, CURSEG_COLD_NODE)->segno) ||	\
 	 ((seg) == CURSEG_I(sbi, CURSEG_COLD_DATA_PINNED)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_ALL_DATA_ATGC)->segno) ||	\
-	IS_CURSEG_SEQZONE(sbi, (seg)))
-
-#ifdef CONFIG_F2FS_SEQZONE
-#define IS_CURSEC_SEQZONE(sbi, secno)	(	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_HOT_DATA_0)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_HOT_DATA_1)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_HOT_DATA_2)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_HOT_DATA_3)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_HOT_DATA_4)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_HOT_DATA_5)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_HOT_DATA_6)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_HOT_DATA_7)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_WARM_DATA_0)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_WARM_DATA_1)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_WARM_DATA_2)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_WARM_DATA_3)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_WARM_DATA_4)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_WARM_DATA_5)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_WARM_DATA_6)->segno /		\
-	  (sbi)->segs_per_sec) ||	\
-	 ((secno) == CURSEG_I(sbi, CURSEG_WARM_DATA_7)->segno /		\
-	  (sbi)->segs_per_sec))
-#else
-#define IS_CURSEC_SEQZONE(sbi, secno)	(false)
-#endif
+	 ((seg) == CURSEG_I(sbi, CURSEG_ALL_DATA_ATGC)->segno))
 
 #define IS_CURSEC(sbi, secno)						\
 	(((secno) == CURSEG_I(sbi, CURSEG_HOT_DATA)->segno /		\
@@ -123,9 +62,7 @@ static inline void sanity_check_seg_type(struct f2fs_sb_info *sbi,
 	 ((secno) == CURSEG_I(sbi, CURSEG_COLD_DATA_PINNED)->segno /	\
 	  (sbi)->segs_per_sec) ||	\
 	 ((secno) == CURSEG_I(sbi, CURSEG_ALL_DATA_ATGC)->segno /	\
-	  (sbi)->segs_per_sec) ||	\
-	 IS_CURSEC_SEQZONE(sbi, secno))
-
+	  (sbi)->segs_per_sec))
 
 #define MAIN_BLKADDR(sbi)						\
 	(SM_I(sbi) ? SM_I(sbi)->main_blkaddr : 				\
@@ -283,9 +220,6 @@ struct sec_entry {
 struct revoke_entry {
 	struct list_head list;
 	block_t old_addr;		/* for revoking when fail to commit */
-#ifdef CONFIG_F2FS_SEQZONE
-	pgoff_t old_seqzone_index;	/* for revoking when fail to commit */
-#endif
 	pgoff_t index;
 };
 
@@ -777,7 +711,7 @@ static inline int utilization(struct f2fs_sb_info *sbi)
  * F2FS_IPU_DISABLE - disable IPU. (=default option in LFS mode)
  */
 #define DEF_MIN_IPU_UTIL	70
-#define DEF_MIN_FSYNC_BLOCKS	20
+#define DEF_MIN_FSYNC_BLOCKS	8
 #define DEF_MIN_HOT_BLOCKS	16
 
 #define SMALL_VOLUME_SEGMENTS	(16 * 512)	/* 16GB */

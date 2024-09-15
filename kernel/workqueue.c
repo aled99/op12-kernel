@@ -1941,6 +1941,9 @@ static struct worker *create_worker(struct worker_pool *pool)
 	struct worker *worker;
 	int id;
 	char id_buf[16];
+#ifdef CONFIG_BLOCKIO_UX_OPT
+	bool set_ux = true;
+#endif
 	/* ID is needed to determine kthread name */
 	id = ida_alloc(&pool->worker_ida, GFP_KERNEL);
 	if (id < 0)
@@ -1973,7 +1976,8 @@ static struct worker *create_worker(struct worker_pool *pool)
 		goto fail;
 #ifdef CONFIG_BLOCKIO_UX_OPT
 	if (pool->attrs->nice == VIRTUAL_KWORKER_NICE) {
-		sched_set_fifo_low(worker->task);
+		dm_bufio_shrink_scan_bypass(
+				(unsigned long)worker->task, &set_ux);
 		set_user_nice(worker->task, MIN_NICE);
 	} else
 		set_user_nice(worker->task, pool->attrs->nice);
@@ -5556,8 +5560,8 @@ static ssize_t wq_nice_show(struct device *dev, struct device_attribute *attr,
 	mutex_lock(&wq->mutex);
 #ifdef CONFIG_BLOCKIO_UX_OPT
 	written = scnprintf(buf, PAGE_SIZE, "%d\n",
-			(wq->unbound_attrs->nice == VIRTUAL_KWORKER_NICE ?
-				MIN_NICE : wq->unbound_attrs->nice));
+		(wq->unbound_attrs->nice == VIRTUAL_KWORKER_NICE ?
+			MIN_NICE : wq->unbound_attrs->nice));
 #else
 	written = scnprintf(buf, PAGE_SIZE, "%d\n", wq->unbound_attrs->nice);
 #endif

@@ -34,6 +34,7 @@
 #ifdef CONFIG_BLOCKIO_UX_OPT
 extern unsigned long counter, total_us, max_us, min_us, aver_us;
 extern unsigned long restart_time, blk_send_ipi_counter;
+extern unsigned long erofs_decompress_ux, erofs_decompress_set_ux;
 extern unsigned long queue_work_ux;
 static int block_io_stat_show(struct seq_file *m, void *arg)
 {
@@ -42,6 +43,8 @@ static int block_io_stat_show(struct seq_file *m, void *arg)
 			"restart_time = %lu, blk_send_ipi_counter = %lu\n",
 			total_us, counter, max_us, min_us, aver_us,
 				restart_time, blk_send_ipi_counter);
+	seq_printf(m, "erofs: erofs_decompress_ux = %lu, erofs_decompress_set_ux = %lu\n",
+				erofs_decompress_ux, erofs_decompress_set_ux);
 	seq_printf(m, "kverityd: queue_work_ux = %lu\n", queue_work_ux);
 
 	return 0;

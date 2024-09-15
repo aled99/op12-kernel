@@ -1051,7 +1051,7 @@ static inline vm_fault_t folio_lock_or_retry(struct folio *folio,
 static inline vm_fault_t lock_nr_folios_or_retry(struct folio **folio, struct vm_fault *vmf,
 		int nr)
 {
-	int i; 
+	int i;
 	vm_fault_t ret = 0;
 
 	might_sleep();

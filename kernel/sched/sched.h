@@ -70,6 +70,7 @@
 #include <linux/workqueue_api.h>
 #include <linux/android_vendor.h>
 #include <linux/android_kabi.h>
+#include "android.h"
 
 #include <trace/events/power.h>
 #include <trace/events/sched.h>
@@ -92,6 +93,10 @@
 
 #include "cpupri.h"
 #include "cpudeadline.h"
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_VT_CAP)
+#include <linux/sched/cputime.h>
+#endif
+
 
 #ifdef CONFIG_SCHED_DEBUG
 # define SCHED_WARN_ON(x)      WARN_ONCE(x, #x)
@@ -121,20 +126,6 @@ extern void call_trace_sched_update_nr_running(struct rq *rq, int count);
 extern unsigned int sysctl_sched_rt_period;
 extern int sysctl_sched_rt_runtime;
 extern int sched_rr_timeslice;
-
-/*
- * Asymmetric CPU capacity bits
- */
-struct asym_cap_data {
-	struct list_head link;
-	struct rcu_head rcu;
-	unsigned long capacity;
-	unsigned long cpus[];
-};
-
-extern struct list_head asym_cap_list;
-
-#define cpu_capacity_span(asym_data) to_cpumask((asym_data)->cpus)
 
 /*
  * Helpers for converting nanosecond timing to jiffy resolution
@@ -654,7 +645,6 @@ struct cfs_rq {
 	} removed;
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
-	u64			last_update_tg_load_avg;
 	unsigned long		tg_load_avg_contrib;
 	long			propagate;
 	long			prop_runnable_sum;
@@ -3405,8 +3395,7 @@ static inline void update_current_exec_runtime(struct task_struct *curr,
 	cgroup_account_cputime(curr, delta_exec);
 }
 
-extern bool cpu_busy_with_softirqs(int cpu);
-
 #include "ext.h"
 
+extern bool cpu_busy_with_softirqs(int cpu);
 #endif /* _KERNEL_SCHED_SCHED_H */

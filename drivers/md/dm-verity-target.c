@@ -711,7 +711,6 @@ static void verity_end_io(struct bio *bio)
 	queue_work(io->v->verify_wq, &io->work);
 }
 
-
 /*
  * Prefetch buffers for the specified io.
  * The root buffer is not prefetched, it is assumed that it will be cached
@@ -1180,6 +1179,15 @@ static int verity_parse_opt_args(struct dm_arg_set *as, struct dm_verity *v,
 			 * properly parse all options (and their extra args).
 			 */
 			continue;
+#if defined(CONFIG_DM_VERITY_SIG_VALUE)
+		} else if (verity_verify_is_sig_value_opt_arg(arg_name)) {
+			r = verity_verify_sig_value_parse_opt_args(
+				as, v, verify_args, &argc, arg_name);
+
+			if (r)
+				return r;
+			continue;
+#endif
 		}
 
 		DMERR("Unrecognized verity feature request: %s", arg_name);
@@ -1394,13 +1402,6 @@ static int verity_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 			goto bad;
 	}
 
-	/* Always enable DM_VERITY_OPT_AT_MOST_ONCE */
-	if (!v->validated_blocks) {
-		r = verity_alloc_most_once(v);
-		if (r)
-			goto bad;
-	}
-
 	/* Root hash signature is  a optional parameter*/
 	r = verity_verify_root_hash(root_hash_digest_to_validate,
 				    strlen(root_hash_digest_to_validate),
@@ -1483,7 +1484,8 @@ static int verity_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	 */
 
 #ifdef CONFIG_BLOCKIO_UX_OPT
-	verity_wq_name = kasprintf(GFP_KERNEL, "kverityd%d", atomic_add_return(1, &verity_wq_id));
+	atomic_add(1, &verity_wq_id);
+	verity_wq_name = kasprintf(GFP_KERNEL, "kverityd%d", atomic_read(&verity_wq_id));
 	v->verify_wq = alloc_workqueue(verity_wq_name, WQ_MEM_RECLAIM | WQ_HIGHPRI | WQ_UX | WQ_UNBOUND | WQ_SYSFS, 0);
 #else
 	v->verify_wq = alloc_workqueue("kverityd", WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);

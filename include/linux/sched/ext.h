@@ -570,8 +570,6 @@ struct scx_sched_task_stats {
 	void 			*sdsq;
 };
 
-
-
 /*
  * The following is embedded in task_struct and contains all fields necessary
  * for a task to be scheduled by SCX.

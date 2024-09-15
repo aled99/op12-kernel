@@ -983,7 +983,7 @@ struct file {
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 } __randomize_layout
-  __attribute__((aligned(8)));	
+  __attribute__((aligned(4)));	/* lest something weird decides that 2 is OK */
 
 struct file_handle {
 	__u32 handle_bytes;
@@ -1413,6 +1413,9 @@ extern int send_sigurg(struct fown_struct *fown);
 #define SB_SILENT       BIT(15)
 #define SB_POSIXACL     BIT(16)	/* VFS does not apply the umask */
 #define SB_INLINECRYPT  BIT(17)	/* Use blk-crypto for encrypted files */
+#ifdef CONFIG_BLOCKIO_UX_OPT
+#define SB_UX           BIT(20) /* Indicate ux flag for decompress workqueue */
+#endif
 #define SB_KERNMOUNT    BIT(22)	/* this is a kern_mount call */
 #define SB_I_VERSION    BIT(23)	/* Update inode I_version field */
 #define SB_LAZYTIME     BIT(25)	/* Update the on-disk [acm]times lazily */

@@ -2857,6 +2857,7 @@ static void shrink_active_list(unsigned long nr_to_scan,
 				continue;
 			}
 		}
+
 		trace_android_vh_folio_trylock_clear(folio);
 skip_folio_referenced:
 		folio_clear_active(folio);	/* we are de-activating */

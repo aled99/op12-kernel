@@ -477,7 +477,7 @@ HOSTRUSTC = rustc
 HOSTPKG_CONFIG	= pkg-config
 
 KBUILD_USERHOSTCFLAGS := -Wall -Wmissing-prototypes -Wstrict-prototypes \
-			 -O3 -fomit-frame-pointer -std=gnu11 
+			 -O2 -fomit-frame-pointer -std=gnu11
 KBUILD_USERCFLAGS  := $(KBUILD_USERHOSTCFLAGS) $(USERCFLAGS)
 KBUILD_USERLDFLAGS := $(USERLDFLAGS)
 
@@ -498,7 +498,7 @@ export rust_common_flags := --edition=2021 \
 			    -Wclippy::dbg_macro
 
 KBUILD_HOSTCFLAGS   := $(KBUILD_USERHOSTCFLAGS) $(HOST_LFS_CFLAGS) $(HOSTCFLAGS)
-KBUILD_HOSTCXXFLAGS := -Wall -O3 $(HOST_LFS_CFLAGS) $(HOSTCXXFLAGS)
+KBUILD_HOSTCXXFLAGS := -Wall -O2 $(HOST_LFS_CFLAGS) $(HOSTCXXFLAGS)
 KBUILD_HOSTRUSTFLAGS := $(rust_common_flags) -O -Cstrip=debuginfo \
 			-Zallow-features= $(HOSTRUSTFLAGS)
 KBUILD_HOSTLDFLAGS  := $(HOST_LFS_LDFLAGS) $(HOSTLDFLAGS)
@@ -586,8 +586,7 @@ KBUILD_AFLAGS   := -D__ASSEMBLY__ -fno-PIE
 KBUILD_CFLAGS   := -Wall -Wundef -Werror=strict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common -fshort-wchar -fno-PIE \
 		   -Werror=implicit-function-declaration -Werror=implicit-int \
-		   -Werror=return-type -Wno-format-security \
-		   -Wno-error=format \
+		   -Werror=return-type -Wformat=0 -Wno-format-security -Wno-format \
 		   -std=gnu11
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_RUSTFLAGS := $(rust_common_flags) \
@@ -608,6 +607,27 @@ KBUILD_RUSTFLAGS_MODULE := --cfg MODULE
 KBUILD_LDFLAGS_MODULE :=
 KBUILD_LDFLAGS :=
 CLANG_FLAGS :=
+
+# ifdef OPLUS_BUG_STABILITY
+KBUILD_CFLAGS +=   -DOPLUS_OEM_BOOT_MODE
+KBUILD_CPPFLAGS += -DOPLUS_OEM_BOOT_MODE
+CFLAGS_KERNEL +=   -DOPLUS_OEM_BOOT_MODE
+CFLAGS_MODULE +=   -DOPLUS_OEM_BOOT_MODE
+# endif
+
+#ifdef OPLUS_FEATURE_CHG_BASIC
+KBUILD_CFLAGS +=   -DOPLUS_FEATURE_CHG_BASIC
+KBUILD_CPPFLAGS += -DOPLUS_FEATURE_CHG_BASIC
+CFLAGS_KERNEL +=   -DOPLUS_FEATURE_CHG_BASIC
+CFLAGS_MODULE +=   -DOPLUS_FEATURE_CHG_BASIC
+#endif
+
+# ifdef OPLUS_FEATURE_DISPLAY
+KBUILD_CFLAGS +=   -DOPLUS_FEATURE_DISPLAY
+KBUILD_CPPFLAGS += -DOPLUS_FEATURE_DISPLAY
+CFLAGS_KERNEL +=   -DOPLUS_FEATURE_DISPLAY
+CFLAGS_MODULE +=   -DOPLUS_FEATURE_DISPLAY
+# endif
 
 ifeq ($(KBUILD_CLIPPY),1)
 	RUSTC_OR_CLIPPY_QUIET := CLIPPY
@@ -781,14 +801,6 @@ ifndef KBUILD_MIXED_TREE
 all: vmlinux
 endif
 
-ifdef CONFIG_ARCH_SUPPORTS_PGO_CLANG
-ifneq ($(KCFLAGS_PGO),)
-CFLAGS_PGO_CLANG := $(KCFLAGS_PGO)
-endif
-export CFLAGS_PGO_CLANG
-$(info pgo flags: $(CFLAGS_PGO_CLANG))
-endif
-
 CFLAGS_GCOV	:= -fprofile-arcs -ftest-coverage
 ifdef CONFIG_CC_IS_GCC
 CFLAGS_GCOV	+= -fno-tree-loop-im
@@ -856,11 +868,8 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, format-overflow)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, address-of-packed-member)
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
-KBUILD_CFLAGS += -O3
+KBUILD_CFLAGS += -O2
 KBUILD_RUSTFLAGS += -Copt-level=2
-else ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3
-KBUILD_CFLAGS += -O3
-KBUILD_RUSTFLAGS += -Copt-level=3
 else ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS += -Os
 KBUILD_RUSTFLAGS += -Copt-level=s
@@ -870,23 +879,6 @@ endif
 # depends on `opt-level` and `debug-assertions`, respectively.
 KBUILD_RUSTFLAGS += -Cdebug-assertions=$(if $(CONFIG_RUST_DEBUG_ASSERTIONS),y,n)
 KBUILD_RUSTFLAGS += -Coverflow-checks=$(if $(CONFIG_RUST_OVERFLOW_CHECKS),y,n)
-
-ifdef CONFIG_LLVM_POLLY
-KBUILD_CFLAGS	+= -mllvm -polly \
-		   -mllvm -polly-run-inliner \
-		   -mllvm -polly-ast-use-context \
-		   -mllvm -polly-detect-keep-going \
-		   -mllvm -polly-invariant-load-hoisting \
-		   -mllvm -polly-vectorizer=stripmine \
-		   -mllvm -polly-loopfusion-greedy=1 \
-		   -mllvm -polly-reschedule=1 \
-		   -mllvm -polly-postopts=1 \
-		   -mllvm -polly-num-threads=0 \
-		   -mllvm -polly-omp-backend=LLVM \
-		   -mllvm -polly-scheduling=dynamic \
-		   -mllvm -polly-scheduling-chunksize=1 \
-		   -march=armv9-a
-endif
 
 # Tell gcc to never replace conditional load with a non-conditional one
 ifdef CONFIG_CC_IS_GCC
@@ -905,7 +897,7 @@ KBUILD_CFLAGS += -fno-reorder-blocks -fno-ipa-cp-clone -fno-partial-inlining
 endif
 
 ifneq ($(CONFIG_FRAME_WARN),0)
-KBUILD_CFLAGS += -Wframe-larger-than=99999999
+KBUILD_CFLAGS += -Wframe-larger-than=$(CONFIG_FRAME_WARN)
 endif
 
 stackp-flags-y                                    := -fno-stack-protector
@@ -924,18 +916,6 @@ ifdef CONFIG_CC_IS_CLANG
 KBUILD_CPPFLAGS += -Qunused-arguments
 # The kernel builds with '-std=gnu11' so use of GNU extensions is acceptable.
 KBUILD_CFLAGS += -Wno-gnu
-
-# Clang may emit a warning when a const variable, such as the dummy variables
-# in typecheck(), or const member of an aggregate type are not initialized,
-# which can result in unexpected behavior. However, in many audited cases of
-# the "field" variant of the warning, this is intentional because the field is
-# never used within a particular call path, the field is within a union with
-# other non-const members, or the containing object is not const so the field
-# can be modified via memcpy() / memset(). While the variable warning also gets
-# disabled with this same switch, there should not be too much coverage lost
-# because -Wuninitialized will still flag when an uninitialized const variable
-# is used.
-KBUILD_CFLAGS += $(call cc-disable-warning, default-const-init-unsafe)
 else
 
 # gcc inanely warns about local variables called 'main'
@@ -1055,11 +1035,7 @@ CC_FLAGS_LTO	+= -fvisibility=default
 endif
 
 # Limit inlining across translation units to reduce binary size
-ifdef CONFIG_ARCH_SUPPORTS_PGO_CLANG
-KBUILD_LDFLAGS += -mllvm -import-instr-limit=60
-else
 KBUILD_LDFLAGS += -mllvm -import-instr-limit=5
-endif
 
 # Check for frame size exceeding threshold during prolog/epilog insertion
 # when using lld < 13.0.0.
@@ -1160,7 +1136,6 @@ include-$(CONFIG_KMSAN)		+= scripts/Makefile.kmsan
 include-$(CONFIG_UBSAN)		+= scripts/Makefile.ubsan
 include-$(CONFIG_KCOV)		+= scripts/Makefile.kcov
 include-$(CONFIG_RANDSTRUCT)	+= scripts/Makefile.randstruct
-include-$(CONFIG_AUTOFDO_CLANG)	+= scripts/Makefile.autofdo
 include-$(CONFIG_GCC_PLUGINS)	+= scripts/Makefile.gcc-plugins
 
 include $(addprefix $(srctree)/, $(include-y))
@@ -1198,8 +1173,8 @@ LDFLAGS_vmlinux += --orphan-handling=warn
 endif
 
 # Align the bit size of userspace programs with the kernel
-KBUILD_USERCFLAGS  += $(filter -m32 -m64 --target=%, $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS))
-KBUILD_USERLDFLAGS += $(filter -m32 -m64 --target=%, $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS))
+KBUILD_USERCFLAGS  += $(filter -m32 -m64 --target=%, $(KBUILD_CFLAGS))
+KBUILD_USERLDFLAGS += $(filter -m32 -m64 --target=%, $(KBUILD_CFLAGS))
 
 # make the checker run with the right architecture
 CHECKFLAGS += --arch=$(ARCH)
@@ -1249,17 +1224,6 @@ export MODULES_NSDEPS := $(extmod_prefix)modules.nsdeps
 
 PHONY += headers
 
-ext-mod-dir := ../sm8650-modules
-ext-mod-dirs := \
- 	$(ext-mod-dir)/qcom/opensource/audio-kernel \
- 	$(ext-mod-dir)/qcom/opensource/dataipa/drivers/platform/msm \
- 	$(ext-mod-dir)/qcom/opensource/display-drivers \
- 	$(ext-mod-dir)/qcom/opensource/mm-sys-kernel/ubwcp \
- 	$(ext-mod-dir)/qcom/opensource/securemsm-kernel/smmu-proxy \
- 	$(ext-mod-dir)/qcom/opensource/video-kernel \
- 	$(ext-mod-dir)/nxp/opensource/driver
-ext-mod-dirs := $(subst $(srctree)/,,$(ext-mod-dirs))
-
 #Default location for installed headers
 ifeq ($(KBUILD_EXTMOD),)
 PHONY += archheaders archscripts
@@ -1288,9 +1252,61 @@ ifeq ($(KBUILD_EXTMOD),)
 endif
 	$(Q)$(MAKE) $(hdr-inst)=$(hdr-prefix)include/uapi
 	$(Q)$(MAKE) $(hdr-inst)=$(hdr-prefix)arch/$(SRCARCH)/include/uapi
-	$(Q)for d in $(ext-mod-dirs); do \
-		$(MAKE) $(hdr-inst)=$$d/include/uapi; \
-	done
+
+# ---------------------------------------------------------------------------
+# Devicetree files
+ifeq ($(KBUILD_EXTMOD),)
+ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/boot/dts/),)
+dtstree := arch/$(SRCARCH)/boot/dts
+endif
+
+else # KBUILD_EXTMOD
+# Devicetree source should live in $(KBUILD_EXTMOD)/arch/$(SRCARCH)/boot/dts/
+# But it may live inside some other folder relative to KBUILD_EXTMOD, as specified
+# by KBUILD_EXTMOD_DTS
+KBUILD_EXTMOD_DTS = arch/$(SRCARCH)/boot/dts
+ifneq ($(wildcard $(KBUILD_EXTMOD)/$(KBUILD_EXTMOD_DTS)/ $(srctree)/$(KBUILD_EXTMOD)/$(KBUILD_EXTMOD_DTS)/),)
+dtstree := $(KBUILD_EXTMOD)/$(KBUILD_EXTMOD_DTS)
+endif
+endif
+
+ifneq ($(dtstree),)
+
+%.dtb: include/config/kernel.release scripts_dtc
+	$(Q)$(MAKE) $(build)=$(dtstree) $(dtstree)/$@
+
+PHONY += dtbs dtbs_install dtbs_check
+dtbs: include/config/kernel.release scripts_dtc
+	$(Q)$(MAKE) $(build)=$(dtstree)
+
+ifneq ($(filter dtbs_check, $(MAKECMDGOALS)),)
+export CHECK_DTBS=y
+dtbs: dt_binding_check
+endif
+
+dtbs_check: dtbs
+
+dtbs_install:
+	$(Q)$(MAKE) $(dtbinst)=$(dtstree) dst=$(INSTALL_DTBS_PATH)
+
+ifdef CONFIG_OF_EARLY_FLATTREE
+all: dtbs
+endif
+
+endif
+
+PHONY += scripts_dtc
+scripts_dtc: scripts_basic
+	$(Q)$(MAKE) $(build)=scripts/dtc
+
+ifneq ($(filter dt_binding_check, $(MAKECMDGOALS)),)
+export CHECK_DT_BINDING=y
+endif
+
+PHONY += dt_binding_check
+dt_binding_check: scripts_dtc
+	$(Q)$(MAKE) $(build)=Documentation/devicetree/bindings
+
 
 ifeq ($(KBUILD_EXTMOD),)
 

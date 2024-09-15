@@ -15,7 +15,6 @@
 #include <linux/sched/signal.h>
 #include <linux/random.h>
 #include <linux/sched/mm.h>
-#include <uapi/linux/sched/types.h>
 
 #include "f2fs.h"
 #include "node.h"
@@ -172,7 +171,6 @@ next:
 
 int f2fs_start_gc_thread(struct f2fs_sb_info *sbi)
 {
-	const struct sched_param param = { .sched_priority = 0 };
 	struct f2fs_gc_kthread *gc_th;
 	dev_t dev = sbi->sb->s_bdev->bd_dev;
 
@@ -199,9 +197,6 @@ int f2fs_start_gc_thread(struct f2fs_sb_info *sbi)
 		sbi->gc_thread = NULL;
 		return err;
 	}
-	sched_setscheduler(sbi->gc_thread->f2fs_gc_task, SCHED_IDLE, &param);
-	set_task_ioprio(sbi->gc_thread->f2fs_gc_task,
-			IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE, 0));
 
 	return 0;
 }
@@ -1371,9 +1366,8 @@ static int move_data_block(struct inode *inode, block_t bidx,
 	set_summary(&sum, dn.nid, dn.ofs_in_node, ni.version);
 
 	/* allocate block address */
-
 	err = f2fs_allocate_data_block(fio.sbi, NULL, fio.old_blkaddr, &newaddr,
-				&sum, type, NULL, 0);
+				&sum, type, NULL);
 	if (err) {
 		f2fs_put_page(mpage, 1);
 		/* filesystem should shutdown, no need to recovery block */
@@ -1393,8 +1387,9 @@ static int move_data_block(struct inode *inode, block_t bidx,
 	memcpy(page_address(fio.encrypted_page),
 				page_address(mpage), PAGE_SIZE);
 	f2fs_put_page(mpage, 1);
-
-	f2fs_invalidate_internal_cache(fio.sbi, fio.old_blkaddr);
+	invalidate_mapping_pages(META_MAPPING(fio.sbi),
+				fio.old_blkaddr, fio.old_blkaddr);
+	f2fs_invalidate_compress_page(fio.sbi, fio.old_blkaddr);
 
 	set_page_dirty(fio.encrypted_page);
 	if (clear_page_dirty_for_io(fio.encrypted_page))

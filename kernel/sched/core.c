@@ -103,8 +103,6 @@
 #include <../kernel/oplus_cpu/sched/sched_tune/tune.h>
 #endif
 
-#include "../locking/locking_main.h"
-
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
  * associated with them) to allow external modules to probe them.
@@ -132,7 +130,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_stat_blocked);
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 EXPORT_SYMBOL_GPL(runqueues);
-
 
 #ifdef CONFIG_SCHED_DEBUG
 /*
@@ -172,7 +169,6 @@ __read_mostly int scheduler_running;
 #ifdef CONFIG_SCHED_CORE
 
 DEFINE_STATIC_KEY_FALSE(__sched_core_enabled);
-
 
 /* kernel prio, less is more */
 static inline int __task_prio(struct task_struct *p)
@@ -4795,7 +4791,6 @@ late_initcall(sched_core_sysctl_init);
 int sched_fork(unsigned long clone_flags, struct task_struct *p)
 {
 	int ret;
-
 	trace_android_rvh_sched_fork(p);
 
 	__sched_fork(clone_flags, p);
@@ -6780,7 +6775,6 @@ static void __sched notrace __schedule(unsigned int sched_mode)
 #endif
 
 	trace_android_rvh_schedule(sched_mode, prev, next, rq);
-	locking_record_switch_in_cs(prev);
 	if (likely(prev != next)) {
 		rq->nr_switches++;
 		/*
@@ -7283,9 +7277,8 @@ void rt_mutex_setprio(struct task_struct *p, struct task_struct *pi_task)
 				p->dl.pi_se = &p->dl;
 			if (rt_prio(oldprio))
 				p->rt.timeout = 0;
-			else if (!task_has_idle_policy(p))
-				reweight_task(p, prio - MAX_RT_PRIO);
 		}
+
 		__setscheduler_prio(p, prio);
 	}
 
@@ -7925,7 +7918,6 @@ change:
 			trace_android_rvh_setscheduler(p);
 		}
 		__setscheduler_uclamp(p, attr);
-
 		/*
 		 * We enqueue to tail when the priority of a task is
 		 * increased (user space view).
@@ -10562,7 +10554,6 @@ void sched_move_task(struct task_struct *tsk)
 	schedtune_attach(tsk);
 #endif
 
-
 	trace_android_vh_sched_move_task(tsk);
 	rq = task_rq_lock(tsk, &rf);
 	update_rq_clock(rq);
@@ -10655,7 +10646,7 @@ static void cpu_cgroup_css_free(struct cgroup_subsys_state *css)
 #endif
 }
 
-#ifdef CONFIG_RT_GROUP_SCHED
+#if defined(CONFIG_RT_GROUP_SCHED)
 static int cpu_cgroup_can_attach(struct cgroup_taskset *tset)
 {
 	struct task_struct *task;
@@ -11540,6 +11531,7 @@ static struct cftype cpu_files[] = {
 #if IS_ENABLED(CONFIG_OPLUS_SCHED_TUNE)
 	{
 		.name = "schedtune.boost",
+		.flags = CFTYPE_NOT_ON_ROOT,
 		.read_s64 = schedtune_boost_read,
 		.write_s64 = schedtune_boost_write,
 	},

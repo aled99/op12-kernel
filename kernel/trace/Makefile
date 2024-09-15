@@ -31,8 +31,6 @@ ifdef CONFIG_GCOV_PROFILE_FTRACE
 GCOV_PROFILE := y
 endif
 
-PGO_PROFILE := n
-
 # Functions in this file could be invoked from early interrupt
 # code and produce random code coverage.
 KCOV_INSTRUMENT_trace_preemptirq.o := n
@@ -109,5 +107,9 @@ obj-$(CONFIG_RETHOOK) += rethook.o
 
 obj-$(CONFIG_TRACEPOINT_BENCHMARK) += trace_benchmark.o
 obj-$(CONFIG_RV) += rv/
+
+obj-$(CONFIG_IPC_LOGGING) += qcom_ipc_logging.o
+qcom_ipc_logging-y := ipc_logging.o  ipc_logging_debug.o
+qcom_ipc_logging-$(CONFIG_IPC_LOGGING_CDEV) += ipc_logging_cdev.o
 
 libftrace-y := ftrace.o

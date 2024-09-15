@@ -515,8 +515,6 @@ DEFINE_EVENT_SCHEDSTAT(sched_stat_template, sched_stat_blocked,
 /*
  * Tracepoint for recording the cause of uninterruptible sleep.
  */
-extern void get_backtrace(struct task_struct *task,
-			unsigned long entry[], int nr_entries);
 TRACE_EVENT(sched_blocked_reason,
 
 	TP_PROTO(struct task_struct *tsk),
@@ -527,30 +525,15 @@ TRACE_EVENT(sched_blocked_reason,
 		__field( pid_t,	pid	)
 		__field( void*, caller	)
 		__field( bool, io_wait	)
-		__field( void*, layer1  )
-		__field( void*, layer2  )
-		__field( void*, layer3  )
-		__field( void*, layer4  )
 	),
 
 	TP_fast_assign(
-		#define STACK_MAX_DEPTH	(4)
-		unsigned long traces[STACK_MAX_DEPTH] = {0};
-		get_backtrace(tsk, traces, STACK_MAX_DEPTH);
 		__entry->pid	= tsk->pid;
 		__entry->caller = (void *)__get_wchan(tsk);
 		__entry->io_wait = tsk->in_iowait;
-		__entry->layer1 = (void *)traces[0];
-		__entry->layer2 = (void *)traces[1];
-		__entry->layer3 = (void *)traces[2];
-		__entry->layer4 = (void *)traces[3];
 	),
 
-	TP_printk("pid=%d iowait=%d caller=%pS layer1=%pS"
-			" layer2=%pS layer3=%pS layer4=%pS",
-			__entry->pid, __entry->io_wait, __entry->caller,
-			__entry->layer1, __entry->layer2, __entry->layer3,
-			__entry->layer4)
+	TP_printk("pid=%d iowait=%d caller=%pS", __entry->pid, __entry->io_wait, __entry->caller)
 );
 
 /*

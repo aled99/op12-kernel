@@ -208,18 +208,8 @@ static ssize_t __name ## _store(struct kobject *kobj,			\
 static struct kobj_attribute __name ## _attr =				\
 	__ATTR(__name, 0644, __name ## _show,  __name ## _store);	\
 
-/* tune_scan_type with a reserved bit of task->flags */
-#ifndef PF__HOLE__02000000
-#define PF__HOLE__02000000	0x02000000
-#endif
-#define PF_SHRINK_ANON		PF__HOLE__02000000
-
 inline bool current_is_hybridswapd(void)
 {
-	/* Triggered from user by force_shrink or madvise */
-	if (current->flags & PF_SHRINK_ANON)
-		return true;
-
 	if (unlikely(!(current->flags & PF_KTHREAD)))
 		return false;
 
