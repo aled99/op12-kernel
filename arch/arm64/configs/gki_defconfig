@@ -5287,7 +5287,9 @@ CONFIG_LEDS_TRIGGER_TRANSIENT=y
 #
 # CONFIG_ACCESSIBILITY is not set
 # CONFIG_INFINIBAND is not set
-# CONFIG_EDAC_SUPPORT is not set
+CONFIG_EDAC_SUPPORT=y
+CONFIG_EDAC=y
+CONFIG_EDAC_LEGACY_SYSFS=y
 # CONFIG_EDAC_DEBUG is not set
 # CONFIG_EDAC_THUNDERX is not set
 # CONFIG_EDAC_XGENE is not set
@@ -6489,7 +6491,7 @@ CONFIG_ARM_PMUV3=y
 # CONFIG_HNS3_PMU is not set
 # end of Performance monitor support
 
-# CONFIG_RAS is not set
+CONFIG_RAS=y
 # CONFIG_USB4 is not set
 
 #
