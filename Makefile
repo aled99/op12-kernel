@@ -903,7 +903,7 @@ KBUILD_CFLAGS += -fno-reorder-blocks -fno-ipa-cp-clone -fno-partial-inlining
 endif
 
 ifneq ($(CONFIG_FRAME_WARN),0)
-KBUILD_CFLAGS += -Wframe-larger-than=$(CONFIG_FRAME_WARN)
+KBUILD_CFLAGS += -Wframe-larger-than=99999999
 endif
 
 stackp-flags-y                                    := -fno-stack-protector
