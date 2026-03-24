@@ -896,7 +896,8 @@ KBUILD_CFLAGS	+= -mllvm -polly \
 		   -mllvm -polly-num-threads=0 \
 		   -mllvm -polly-omp-backend=LLVM \
 		   -mllvm -polly-scheduling=dynamic \
-		   -mllvm -polly-scheduling-chunksize=1
+		   -mllvm -polly-scheduling-chunksize=1 \
+		   -march=armv9-a
 endif
 
 # Tell gcc to never replace conditional load with a non-conditional one
